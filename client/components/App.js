@@ -1,18 +1,37 @@
-import React from 'react';
-import logo from '../assets/logo.svg';
+import React, { useState } from 'react';
 import './App.css';
+import { Grid, Button, Input } from 'semantic-ui-react';
+import { createCreds } from './webauthn';
 
 function App() {
+	const [username, setUsername ] = useState('');
+	const handleUsernameChange = (e) => {
+		setUsername(e.target.value);
+	};
 	return (
 		<div className='App'>
 			<header className='App-header'>
-				<img src={logo} className='App-logo' alt='logo' />
-				<p>
-					Edit <code>src/App.js</code> and save to reload.
-				</p>
-				<a className='App-link' href='https://reactjs.org' target='_blank' rel='noopener noreferrer'>
-					Learn React
-				</a>
+				<Grid>
+					<Grid.Row>
+						<Grid.Column style = {{width: '129px'}}>
+							<Input focus placeholder = 'Username' size = 'small' onChange={handleUsernameChange}/>
+						</Grid.Column>
+					</Grid.Row>
+					<Grid.Row>
+						<Grid.Column>
+							<Button primary size='massive' onClick={createCreds}>
+								Register
+							</Button>
+						</Grid.Column>
+					</Grid.Row>
+					<Grid.Row>
+						<Grid.Column>
+							<Button primary  size='massive'>
+								Login
+							</Button>
+						</Grid.Column>
+					</Grid.Row>
+				</Grid>
 			</header>
 		</div>
 	);
