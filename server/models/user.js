@@ -1,23 +1,25 @@
-const mongoose = require('mongoose');
+const mongoose = require('../db');
 
 const User = mongoose.model(
+	'User',
 	new mongoose.Schema({
 		id: {
-			type: String
+			type: String,
 		},
 		name: {
 			type: String,
+			unique: false
 		},
 		email: {
 			type: String,
 		},
 		authenticators: {
-			type: Array
+			type: Array,
 		},
 		registered: {
 			type: Boolean,
-			default: false
-		}
+			default: false,
+		},
 	})
 );
 
