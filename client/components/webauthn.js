@@ -1,5 +1,4 @@
 function getMakeCredentialsChallenge(formBody){
-	console.log(formBody);
 	return fetch('http://localhost:8080/webauthn/register', {
 		method: 'POST',
 		credentials: 'include',
@@ -10,7 +9,6 @@ function getMakeCredentialsChallenge(formBody){
 	})
 		.then((response) => response.json())
 		.then((response) => {
-			console.log(response);
 			if (response.status !== 'ok') 
 				throw new Error(`Server responed with error. The message is: ${response.message}`);
 			return response;
@@ -35,7 +33,6 @@ function sendWebAuthnResponse(body){
 }
 
 function getGetAssertionChallenge (formBody){
-	console.log(formBody);
 	return fetch('http://localhost:8080/webauthn/login', {
 		method: 'POST',
 		credentials: 'include',
@@ -46,7 +43,6 @@ function getGetAssertionChallenge (formBody){
 	})
 		.then((response) => response.json())
 		.then((response) => {
-			console.log(response);
 			if (response.status !== 'ok') 
 				throw new Error(`Server responed with error. The message is: ${response.message}`);
 			return response;

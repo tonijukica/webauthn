@@ -36,28 +36,9 @@ function generateRandomBuffer(len) {
 }
 
 let  preformatMakeCredReq = (makeCredReq) => {
-	console.log(makeCredReq.challenge);
-	const challenge = base64url.decode(makeCredReq.challenge);
-	const id = base64url.decode(makeCredReq.user.id);
-
-	return {
-		challenge: Buffer.from(challenge, 'utf8'),
-		rp: {
-			name: 'Toni WebAuthn App'
-		},
-		user: {
-			id: Buffer.from(id, 'utf8'),
-			name: makeCredReq.user.name,
-			displayName: makeCredReq.user.displayName
-		},
-		attestation: 'direct',
-		pubKeyCredParams: [
-			{
-				type: 'public-key',
-				alg: -7
-			}
-		]
-	};
+	makeCredReq.challenge = Buffer.from(base64url.decode(makeCredReq.challenge));
+	makeCredReq.user.id = Buffer.from(base64url.decode(makeCredReq.user.id));
+	return makeCredReq;
 };
 
 function preformatGetAssertReq(getAssert) {

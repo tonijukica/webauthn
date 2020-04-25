@@ -17,12 +17,16 @@ function App() {
 			.then((response) => {
 				console.log('1');
 				const publicKey = preformatMakeCredReq(response);
+				console.log(publicKey);
 				console.log('1.5');
 				return navigator.credentials.create({ publicKey });
 			})
 			.then((response) => {
+				console.log(response);
 				console.log('2');
 				const makeCredResponse = publicKeyCredentialToJSON(response);
+				console.log(makeCredResponse);
+				console.log('2.5');
 				return sendWebAuthnResponse(makeCredResponse);
 			})
 			.then((response) => {
