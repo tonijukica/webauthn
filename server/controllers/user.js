@@ -2,9 +2,10 @@ const crypto = require('crypto');
 const express = require('express');
 const User = require('../models/user');
 const base64url = require('base64url');
-const { randomBase64Buffer, serverMakeCred, serverGetAssertion, verifyAuthenticatorAttestationResponse, verifyAuthenticatorAssertionResponse } = require('../helpers');
+const { randomBase64URLBuffer, serverMakeCred, serverGetAssertion, verifyAuthenticatorAttestationResponse, verifyAuthenticatorAssertionResponse } = require('../helpers');
 
 const router = express.Router();
+
 router.get('/', (req, res) => {
 	res.send('dummy');
 });
@@ -20,7 +21,7 @@ router.post('/register', async (req, res) => {
 		return res.status(400).send('User already exists');
 	else {
 		const user = await User.create({
-			id: Buffer.from(crypto.randomBytes(8)).toString('hex'),
+			id: randomBase64URLBuffer(8),
 			name: email.split('@')[0],
 			email,
 		});
@@ -51,7 +52,7 @@ router.post('/login', async (req, res) => {
 		return res.status(400).send('User does not exist');
 
 	else {
-		console.log(user);
+		console.log('-------\n', user, '-------\n');
 		let getAssertion = serverGetAssertion(user.authenticators);
 		getAssertion.status = 'ok';
 		console.log(getAssertion);
@@ -88,28 +89,30 @@ router.post('/response', async (req, res) => {
 		});
 	}
 	let result;
+	console.log(webAuthnResp.response);
 	let user = await User.findOne({ email });
 	if(webAuthnResp.response.attestationObject !== undefined) {
 		/* This is create cred */
-		result = verifyAuthenticatorAttestationResponse(webAuthnResp);
+		console.log('creating cred');
+		result = await verifyAuthenticatorAttestationResponse(webAuthnResp);
 
 		if(result.verified) {
+			console.log(result);
 			user.authenticators.push(result.authrInfo);
 			user.registered = true;
 			user.save();
 		}
 	} else if(webAuthnResp.response.authenticatorData !== undefined) {
 		/* This is get assertion */
-		result = verifyAuthenticatorAssertionResponse(webAuthnResp, user.authenticators);
+		result = await verifyAuthenticatorAssertionResponse(webAuthnResp, user.authenticators);
 	} else {
 		return res.json({
 			'status': 'failed',
 			'message': 'Can not determine type of response!'
 		});
 	}
-	console.log(result);
 	if(result.verified) {
-		res.session.loggedIn = true;
+		req.session.loggedIn = true;
 		return res.json({ 'status': 'ok' });
 	} else {
 		return res.json({

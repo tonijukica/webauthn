@@ -16,6 +16,7 @@ function App() {
 		getMakeCredentialsChallenge({email})
 			.then((response) => {
 				console.log('1');
+				console.log(response);
 				const publicKey = preformatMakeCredReq(response);
 				console.log(publicKey);
 				console.log('1.5');
@@ -47,20 +48,23 @@ function App() {
 			.then((response) => {
 				console.log(response);
 				const publicKey = preformatGetAssertReq(response);
+				console.log(publicKey);
+				console.log('omg wtf');
 				return navigator.credentials.get({ publicKey });
 			})
 			.then((response) => {
+				console.log(response);
 				let getAssertionResponse = publicKeyCredentialToJSON(response);
 				return sendWebAuthnResponse(getAssertionResponse);
 			})
 			.then((response) => {
+				console.log(response);
 				if(response.status === 'ok') {
 					alert('Logged in User');
 				} else {
 					alert(`Server responed with error. The message is: ${response.message}`);
 				}
-			})
-			.catch((error) => console.log(error));
+			});
 	};
 
 	return (

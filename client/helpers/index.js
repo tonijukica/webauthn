@@ -1,4 +1,4 @@
-import * as base64url from 'base64url';
+import base64url from './base64url-arraybuffer';
 
 function publicKeyCredentialToJSON(pubKeyCred) {
 	console.log(pubKeyCred);
@@ -36,22 +36,20 @@ function generateRandomBuffer(len) {
 }
 
 let  preformatMakeCredReq = (makeCredReq) => {
-	makeCredReq.challenge = Buffer.from(base64url.decode(makeCredReq.challenge));
-	makeCredReq.user.id = Buffer.from(base64url.decode(makeCredReq.user.id));
+	makeCredReq.challenge = base64url.decode(makeCredReq.challenge);
+	makeCredReq.user.id = base64url.decode(makeCredReq.user.id);
+
 	return makeCredReq;
 };
 
-function preformatGetAssertReq(getAssert) {
-	console.log(getAssert);
-	console.log(base64url.decode(getAssert.status));
-	const challenge = base64url.decode(getAssert.challenge);
-	getAssert.challenge = Buffer.from(challenge, 'utf8');
-
-	for (let allowCred of getAssert.allowCredentials) {
-		const id =  base64url.decode(allowCred.id);
-		allowCred.id = Buffer.from(id, 'utf-8');
+let preformatGetAssertReq = (getAssert) => {
+	getAssert.challenge = base64url.decode(getAssert.challenge);
+    
+	for(let allowCred of getAssert.allowCredentials) {
+		allowCred.id = base64url.decode(allowCred.id);
 	}
 
 	return getAssert;
-}
+};
+
 export { publicKeyCredentialToJSON, generateRandomBuffer, preformatGetAssertReq, preformatMakeCredReq };
