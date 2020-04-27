@@ -1,13 +1,14 @@
+'use strict';
 const crypto = require('crypto');
 const base64url = require('base64url');
 const cbor = require('cbor');
 const verifyU2FAttestation = require('./u2fAttestation');
 const verifyPackedAttestation = require('./packedAttestation');
+const verifyAndroidKeyAttestation = require('./androidKeyAttestation');
+const verifyAndroidSafetyNetAttestation = require('./androidSafetyNetAttestation');
 
-async function verifySignature (signature, data, publicKey){
-	return await crypto.createVerify('SHA256')
-		.update(data)
-		.verify(publicKey, signature);
+async function verifySignature(signature, data, publicKey) {
+	return await crypto.createVerify('SHA256').update(data).verify(publicKey, signature);
 }
 let randomBase64URLBuffer = (len) => {
 	len = len || 32;
@@ -33,25 +34,25 @@ function serverMakeCred(id, email) {
 		user: {
 			id,
 			name,
-			displayName
+			displayName,
 		},
 		attestation: 'direct',
 		pubKeyCredParams: [
 			{
 				type: 'public-key',
-				alg: -7
-			}
-		]
+				alg: -7,
+			},
+		],
 	};
 
 	return makeCredentialds;
 }
-function serverGetAssertion(authenticators){
-	const allowCreds = authenticators.map(authr => {
+function serverGetAssertion(authenticators) {
+	const allowCreds = authenticators.map((authr) => {
 		return {
 			type: 'public-key',
 			id: authr.credID,
-			transports: ['usb', 'nfc', 'ble', 'internal']
+			transports: ['usb', 'nfc', 'ble', 'internal'],
 		};
 	});
 	return {
@@ -60,34 +61,28 @@ function serverGetAssertion(authenticators){
 		userVerification: 'discouraged',
 		rpId: 'localhost',
 		extensions: {
-			txAuthSimple: ''
+			txAuthSimple: '',
 		},
-		timeout: 60000, 
+		timeout: 60000,
 	};
 }
-function hash(data){
+function hash(data) {
 	return crypto.createHash('SHA256').update(data).digest();
 }
 
 function ASN1toPEM(pkBuffer) {
-	if(!Buffer.isBuffer(pkBuffer))
-		throw new Error('ASN1toPEM: input must be a Buffer');
+	if (!Buffer.isBuffer(pkBuffer)) throw new Error('ASN1toPEM: input must be a Buffer');
 	let type;
-	if(pkBuffer.length == 65 && pkBuffer[0] == 0x04){
-		pkBuffer = Buffer.concat([
-			new Buffer.from('3059301306072a8648ce3d020106082a8648ce3d030107034200', 'hex'),
-			pkBuffer
-		]);
+	if (pkBuffer.length == 65 && pkBuffer[0] == 0x04) {
+		pkBuffer = Buffer.concat([new Buffer.from('3059301306072a8648ce3d020106082a8648ce3d030107034200', 'hex'), pkBuffer]);
 		type = 'PUBLIC KEY';
-	}
-	else
-		type = 'CERTIFICATE';
+	} else type = 'CERTIFICATE';
 	const base64Certificate = pkBuffer.toString('base64');
 	let PEMKey = '';
 
-	for(let i = 0; i < Math.ceil(base64Certificate.length/64); i++){
+	for (let i = 0; i < Math.ceil(base64Certificate.length / 64); i++) {
 		const start = 64 * i;
-		PEMKey += base64Certificate.substr(start,64) +'\n';
+		PEMKey += base64Certificate.substr(start, 64) + '\n';
 	}
 
 	PEMKey = `-----BEGIN ${type}-----\n` + PEMKey + `-----END ${type}-----\n`;
@@ -95,55 +90,71 @@ function ASN1toPEM(pkBuffer) {
 	return PEMKey;
 }
 
-
-async function verifyAuthenticatorAttestationResponse (webAuthnResponse){
+async function verifyAuthenticatorAttestationResponse(webAuthnResponse) {
 	const attestationBuffer = base64url.toBuffer(webAuthnResponse.response.attestationObject);
 	const ctapMakeCredResp = cbor.decodeAllSync(attestationBuffer)[0];
 	const { clientDataJSON } = webAuthnResponse.response;
 
 	console.log(ctapMakeCredResp.fmt);
-	if(ctapMakeCredResp.fmt === 'fido-u2f') {
+	if (ctapMakeCredResp.fmt === 'fido-u2f') {
 		const { verified, authrInfo } = await verifyU2FAttestation(ctapMakeCredResp, clientDataJSON);
 
-		if(verified) {
+		if (verified) {
 			const response = {
 				verified,
-				authrInfo
+				authrInfo,
 			};
 			return response;
 		}
-	}
-	else if(ctapMakeCredResp.fmt === 'packed'){
+	} else if (ctapMakeCredResp.fmt === 'packed') {
 		const { verified, authrInfo } = await verifyPackedAttestation(ctapMakeCredResp, clientDataJSON);
 
-		if(verified) {
+		if (verified) {
 			const response = {
 				verified,
-				authrInfo
+				authrInfo,
+			};
+			return response;
+		}
+	} else if (ctapMakeCredResp.fmt === 'android-key') {
+		const { verified, authrInfo } = await verifyAndroidKeyAttestation(ctapMakeCredResp, clientDataJSON);
+
+		if (verified) {
+			const response = {
+				verified,
+				authrInfo,
+			};
+			return response;
+		}
+	} else if (ctapMakeCredResp.fmt === 'android-safetynet') {
+		const { verified, authrInfo } = await verifyAndroidSafetyNetAttestation(ctapMakeCredResp, clientDataJSON);
+
+		if (verified) {
+			const response = {
+				verified,
+				authrInfo,
 			};
 			return response;
 		}
 	}
 
 	return {
-		verified: false
+		verified: false,
 	};
-	
 }
 
-function findAuthenticator (credID, authenticators) {
-	for(const authr of authenticators) {
-		if(authr.credID === credID)
-			return authr;
+function findAuthenticator(credID, authenticators) {
+	for (const authr of authenticators) {
+		if (authr.credID === credID) return authr;
 	}
 	throw new Error(`Unknown authenticator with credID ${credID}!`);
 }
 
-function parseGetAssertAuthData (buffer) {
-	const rpIdHash = buffer.slice(0, 32);          
+function parseGetAssertAuthData(buffer) {
+	const rpIdHash = buffer.slice(0, 32);
 	buffer = buffer.slice(32);
 
-	const flagsBuf = buffer.slice(0, 1);          
+	const flagsBuf = buffer.slice(0, 1);
 	buffer = buffer.slice(1);
 
 	const flagsInt = flagsBuf[0];
@@ -152,47 +163,49 @@ function parseGetAssertAuthData (buffer) {
 		uv: !!(flagsInt & 0x04),
 		at: !!(flagsInt & 0x40),
 		ed: !!(flagsInt & 0x80),
-		flagsInt
+		flagsInt,
 	};
 
 	const counterBuf = buffer.slice(0, 4);
 	buffer = buffer.slice(4);
 
-	const counter  = counterBuf.readUInt32BE(0);
+	const counter = counterBuf.readUInt32BE(0);
 
-	return {rpIdHash, flagsBuf, flags, counter, counterBuf};
+	return { rpIdHash, flagsBuf, flags, counter, counterBuf };
 }
 
-function verifyAuthenticatorAssertionResponse (webAuthnResponse, authenticators){
+function verifyAuthenticatorAssertionResponse(webAuthnResponse, authenticators) {
 	const authr = findAuthenticator(webAuthnResponse.id, authenticators);
 	const authenticatorData = base64url.toBuffer(webAuthnResponse.response.authenticatorData);
 
-	let response = {'verified': false};
-	if(authr.fmt === 'fido-u2f' || authr.fmt === 'packed') {
-		let authrDataStruct  = parseGetAssertAuthData(authenticatorData);
+	let response = { verified: false };
+	if (authr.fmt === 'fido-u2f' || authr.fmt === 'packed' || authr.fmt === 'android-safetynet' || authr.fmt === 'android-key') {
+		let authrDataStruct = parseGetAssertAuthData(authenticatorData);
 
-		if(!(authrDataStruct.flags.up))
-			throw new Error('User was NOT presented durring authentication!');
+		if (!authrDataStruct.flags.up) throw new Error('User was NOT presented durring authentication!');
 
-		const clientDataHash   = hash(base64url.toBuffer(webAuthnResponse.response.clientDataJSON));
-		const signatureBase    = Buffer.concat([authrDataStruct.rpIdHash, authrDataStruct.flagsBuf, authrDataStruct.counterBuf, clientDataHash]);
+		const clientDataHash = hash(base64url.toBuffer(webAuthnResponse.response.clientDataJSON));
+		const signatureBase = Buffer.concat([
+			authrDataStruct.rpIdHash,
+			authrDataStruct.flagsBuf,
+			authrDataStruct.counterBuf,
+			clientDataHash,
+		]);
 
 		const publicKey = ASN1toPEM(base64url.toBuffer(authr.publicKey));
 		const signature = base64url.toBuffer(webAuthnResponse.response.signature);
 
 		response.verified = verifySignature(signature, signatureBase, publicKey);
 
-		if(response.verified) {
-			if(response.counter <= authr.counter)
-				throw new Error('Authr counter did not increase!');
+		if (response.verified) {
+			if (response.counter <= authr.counter) throw new Error('Authr counter did not increase!');
 
 			authr.counter = authrDataStruct.counter;
 		}
 	}
 
 	return response;
-};
-
+}
 
 module.exports = {
 	randomBase64URLBuffer,
@@ -200,5 +213,5 @@ module.exports = {
 	randomHex32String,
 	serverGetAssertion,
 	verifyAuthenticatorAssertionResponse,
-	verifyAuthenticatorAttestationResponse
+	verifyAuthenticatorAttestationResponse,
 };

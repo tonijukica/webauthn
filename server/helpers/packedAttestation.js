@@ -1,11 +1,8 @@
 'use strict';
 const base64url = require('base64url');
-const cbor = require('cbor');
-const crypto = require('crypto');
-const jsrsasign = require('jsrsasign');
 const elliptic = require('elliptic');
 const nodeRSA = require('node-rsa');
-const { hash, parseAuthData, verifySignature, COSEECDHAtoPKCS } = require('./common');
+const { hash, parseAuthData, verifySignature, COSEECDHAtoPKCS, base64ToPem, getCertificationInfo } = require('./common');
 const { COSE_ALG_HASH, COSE_KEYS, COSE_KTY, COSE_CRV, COSE_RSA_SCHEME } = require('./cose');
 
 async function verifyPackedAttestation(ctapCredentialResponse, clientDataJSON){
@@ -123,35 +120,4 @@ async function verifyPackedAttestation(ctapCredentialResponse, clientDataJSON){
 
 module.exports = verifyPackedAttestation;
 
-function base64ToPem(base64cert){
-	let pemcert = '';
-	for(let i = 0; i < base64cert.length; i += 64)
-		pemcert += base64cert.slice(i, i + 64) + '\n';
 
-	return '-----BEGIN CERTIFICATE-----\n' + pemcert + '-----END CERTIFICATE-----';
-}
-
-function getCertificationInfo(certificate){
-	let subjectCert = new jsrsasign.X509();
-	subjectCert.readCertPEM(certificate);
-
-	const subjectString = subjectCert.getSubjectString();
-	const subjectParts  = subjectString.slice(1).split('/');
-
-	let subject = {};
-	for(const field of subjectParts) {
-		const kv = field.split('=');
-		subject[kv[0]] = kv[1];
-	}
-
-	const version = subjectCert.version;
-	console.log('basicCA',subjectCert.getExtBasicConstraints());
-	// const basicConstraintsCA = !!subjectCert.getExtBasicConstraints().cA;
-	const basicConstraintsCA = false;
-
-	return {
-		subject, 
-		version, 
-		basicConstraintsCA
-	};
-}

@@ -13,6 +13,7 @@
   "author": "Toni Jukica",
   "license": "MIT",
   "dependencies": {
+    "@lapo/asn1js": "^1.1.0",
     "babel-polyfill": "^6.26.0",
     "base64url": "^3.0.1",
     "cbor": "^5.0.2",
