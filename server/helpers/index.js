@@ -1,8 +1,9 @@
 const crypto = require('crypto');
 const base64url = require('base64url');
 const cbor = require('cbor');
+const verifyU2FAttestation = require('./u2fAttestation');
+const verifyPackedAttestation = require('./packedAttestation');
 
-const U2F_USER_PRESENTED = 0x01;
 async function verifySignature (signature, data, publicKey){
 	return await crypto.createVerify('SHA256')
 		.update(data)
@@ -68,16 +69,6 @@ function hash(data){
 	return crypto.createHash('SHA256').update(data).digest();
 }
 
-async function COSEECDHAtoPKCS (COSEPublicKey) {
-	// check promisifed fn
-	const coseStruct = cbor.decodeAllSync(COSEPublicKey)[0];
-	const tag = Buffer.from([0x04]);
-	const x = coseStruct.get(-2);
-	const y = coseStruct.get(-3);
-
-	return Buffer.concat([tag, x, y]);
-}
-
 function ASN1toPEM(pkBuffer) {
 	if(!Buffer.isBuffer(pkBuffer))
 		throw new Error('ASN1toPEM: input must be a Buffer');
@@ -105,60 +96,39 @@ function ASN1toPEM(pkBuffer) {
 }
 
 
-function parseMakeCredAuthData (buffer){
-	const rpIdHash      = buffer.slice(0, 32);          buffer = buffer.slice(32);
-	const flagsBuf      = buffer.slice(0, 1);           buffer = buffer.slice(1);
-	const flags         = flagsBuf[0];
-	const counterBuf    = buffer.slice(0, 4);           buffer = buffer.slice(4);
-	const counter       = counterBuf.readUInt32BE(0);
-	const aaguid        = buffer.slice(0, 16);          buffer = buffer.slice(16);
-	const credIDLenBuf  = buffer.slice(0, 2);           buffer = buffer.slice(2);
-	const credIDLen     = credIDLenBuf.readUInt16BE(0);
-	const credID        = buffer.slice(0, credIDLen);   buffer = buffer.slice(credIDLen);
-	const COSEPublicKey = buffer;
-
-	return {rpIdHash, flagsBuf, flags, counter, counterBuf, aaguid, credID, COSEPublicKey};
-}
-
 async function verifyAuthenticatorAttestationResponse (webAuthnResponse){
 	const attestationBuffer = base64url.toBuffer(webAuthnResponse.response.attestationObject);
 	const ctapMakeCredResp = cbor.decodeAllSync(attestationBuffer)[0];
-	console.log(ctapMakeCredResp);
+	const { clientDataJSON } = webAuthnResponse.response;
 
-	let response = {
-		'verified': false
-	};
-
+	console.log(ctapMakeCredResp.fmt);
 	if(ctapMakeCredResp.fmt === 'fido-u2f') {
-		const authrDataStruct = parseMakeCredAuthData(ctapMakeCredResp.authData);
-		
-		if(!(authrDataStruct.flags & U2F_USER_PRESENTED))
-			throw new Error('User was NOT presented durring authentication!');
+		const { verified, authrInfo } = await verifyU2FAttestation(ctapMakeCredResp, clientDataJSON);
 
-		const clientDataHash  = hash(base64url.toBuffer(webAuthnResponse.response.clientDataJSON));
-		const reservedByte    = Buffer.from([0x00]);
-		const publicKey       = await COSEECDHAtoPKCS(authrDataStruct.COSEPublicKey);
-		const signatureBase   = Buffer.concat([reservedByte, authrDataStruct.rpIdHash, clientDataHash, authrDataStruct.credID, publicKey]);
-
-		const PEMCertificate = ASN1toPEM(ctapMakeCredResp.attStmt.x5c[0]);
-		console.log(PEMCertificate);
-		const signature      = ctapMakeCredResp.attStmt.sig;
-
-		response.verified = await verifySignature(signature, signatureBase, PEMCertificate);
-		console.log(response.verified + 'yikes');
-
-		if(response.verified) {
-			console.log('in???');
-			response.authrInfo = {
-				fmt: 'fido-u2f',
-				publicKey: base64url.encode(publicKey),
-				counter: authrDataStruct.counter,
-				credID: base64url.encode(authrDataStruct.credID)
+		if(verified) {
+			const response = {
+				verified,
+				authrInfo
 			};
 			return response;
 		}
 	}
-	return response;
+	else if(ctapMakeCredResp.fmt === 'packed'){
+		const { verified, authrInfo } = await verifyPackedAttestation(ctapMakeCredResp, clientDataJSON);
+
+		if(verified) {
+			const response = {
+				verified,
+				authrInfo
+			};
+			return response;
+		}
+	}
+
+	return {
+		verified: false
+	};
+	
 }
 
 function findAuthenticator (credID, authenticators) {
@@ -170,11 +140,25 @@ function findAuthenticator (credID, authenticators) {
 }
 
 function parseGetAssertAuthData (buffer) {
-	const rpIdHash      = buffer.slice(0, 32);          buffer = buffer.slice(32);
-	const flagsBuf      = buffer.slice(0, 1);           buffer = buffer.slice(1);
-	const flags         = flagsBuf[0];
-	const counterBuf    = buffer.slice(0, 4);           buffer = buffer.slice(4);
-	const counter       = counterBuf.readUInt32BE(0);
+	const rpIdHash = buffer.slice(0, 32);          
+	buffer = buffer.slice(32);
+
+	const flagsBuf = buffer.slice(0, 1);          
+	buffer = buffer.slice(1);
+
+	const flagsInt = flagsBuf[0];
+	const flags = {
+		up: !!(flagsInt & 0x01),
+		uv: !!(flagsInt & 0x04),
+		at: !!(flagsInt & 0x40),
+		ed: !!(flagsInt & 0x80),
+		flagsInt
+	};
+
+	const counterBuf = buffer.slice(0, 4);
+	buffer = buffer.slice(4);
+
+	const counter  = counterBuf.readUInt32BE(0);
 
 	return {rpIdHash, flagsBuf, flags, counter, counterBuf};
 }
@@ -184,10 +168,10 @@ function verifyAuthenticatorAssertionResponse (webAuthnResponse, authenticators)
 	const authenticatorData = base64url.toBuffer(webAuthnResponse.response.authenticatorData);
 
 	let response = {'verified': false};
-	if(authr.fmt === 'fido-u2f') {
+	if(authr.fmt === 'fido-u2f' || authr.fmt === 'packed') {
 		let authrDataStruct  = parseGetAssertAuthData(authenticatorData);
 
-		if(!(authrDataStruct.flags & U2F_USER_PRESENTED))
+		if(!(authrDataStruct.flags.up))
 			throw new Error('User was NOT presented durring authentication!');
 
 		const clientDataHash   = hash(base64url.toBuffer(webAuthnResponse.response.clientDataJSON));

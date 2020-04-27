@@ -95,7 +95,8 @@ router.post('/response', async (req, res) => {
 		/* This is create cred */
 		console.log('creating cred');
 		result = await verifyAuthenticatorAttestationResponse(webAuthnResp);
-
+		console.log(result);
+		
 		if(result.verified) {
 			console.log(result);
 			user.authenticators.push(result.authrInfo);
