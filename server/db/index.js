@@ -8,6 +8,7 @@ mongoose.connect(dbConnection, {
 	useUnifiedTopology: true,
 });
 const db = mongoose.connection;
+
 db.on('error', () => {
 	console.log('> error occurred from the database');
 });

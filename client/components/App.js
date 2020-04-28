@@ -1,7 +1,7 @@
 import './App.css';
 import React, { useState, useEffect } from 'react';
 import { Grid, Button, Message, Form, Segment, Header } from 'semantic-ui-react';
-import { getGetAssertionChallenge, getMakeCredentialsChallenge, sendWebAuthnResponse, getProfile, logout } from './webauthn';
+import { getGetAssertionChallenge, getMakeCredentialsChallenge, sendWebAuthnResponse, getProfile, logout, registerFail } from './webauthn';
 import { preformatGetAssertReq, preformatMakeCredReq, publicKeyCredentialToJSON } from '../helpers';
 
 function App() {
@@ -33,10 +33,13 @@ function App() {
 					setErrMsg(response.message);
 			})
 			.catch(err => {
-				if(err.response.data)
-					setErrMsg(err.response.data);
-				else
-					console.log(err);
+				registerFail({email})
+					.then(() => {
+						if(err.response)
+							setErrMsg(err.response.data);
+						else
+							console.log(err);
+					});
 			});
 	};
 
@@ -63,7 +66,7 @@ function App() {
 				}
 			})
 			.catch(err => {
-				if(err.response.data)
+				if(err.response)
 					setErrMsg(err.response.data);
 				else
 					console.log(err);

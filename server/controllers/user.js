@@ -18,7 +18,7 @@ router.get('/', (req, res) => {
 router.post('/register', async (req, res) => {
 	const { email } = req.body;
 	if (!email)
-		return res.send(400).send('Missing email field');
+		return res.status(400).send('Missing email field');
 
 	const findUser = await User.findOne({ email });
 
@@ -40,7 +40,15 @@ router.post('/register', async (req, res) => {
 	
 		return res.json(makeCredChallenge);
 	}
-	
+});
+
+router.post('/registerfail', async(req, res) => {
+	const { email } = req.body;
+	if (!email)
+		return res.status(400).send('Missing email field');
+
+	await User.deleteOne({ email });
+	return res.status(200).send('Deleted');
 });
 
 router.post('/login', async (req, res) => {

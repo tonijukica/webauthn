@@ -36,7 +36,7 @@ module.exports = {
 		port: 3000,
 		open: true,
 		proxy: {
-			'/api': 'http://localhost'+serverPort,
+			'/webauthn': 'http://localhost:'+serverPort,
 		},
 	},
 	plugins: [
