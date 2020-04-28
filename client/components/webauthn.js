@@ -1,56 +1,47 @@
+import axios from 'axios';
+axios.defaults.withCredentials = true;
+
 function getMakeCredentialsChallenge(formBody){
-	return fetch('http://localhost:8080/webauthn/register', {
-		method: 'POST',
-		credentials: 'include',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(formBody),
-	})
-		.then((response) => response.json())
-		.then((response) => {
-			if (response.status !== 'ok') 
+	return axios.post('http://localhost:8080/webauthn/register', formBody)
+		.then(response => {
+			if (response.data.status !== 'ok') 
 				throw new Error(`Server responed with error. The message is: ${response.message}`);
-			return response;
+			return response.data;
 		});
 }
 
 function sendWebAuthnResponse(body){
-	return fetch('http://localhost:8080/webauthn/response', {
-		method: 'POST',
-		credentials: 'include',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(body),
-	})
-		.then((response) => response.json())
-		.then((response) => {
-			if (response.status !== 'ok') 
+	return axios.post('http://localhost:8080/webauthn/response', body)
+		.then(response => {
+			if(response.data.status !== 'ok')
 				throw new Error(`Server responed with error. The message is: ${response.message}`);
-			return response;
+			return response.data;
 		});
 }
 
 function getGetAssertionChallenge (formBody){
-	return fetch('http://localhost:8080/webauthn/login', {
-		method: 'POST',
-		credentials: 'include',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(formBody),
-	})
-		.then((response) => response.json())
-		.then((response) => {
-			if (response.status !== 'ok') 
+	return axios.post('http://localhost:8080/webauthn/login', formBody)
+		.then(response => {
+			if (response.data.status !== 'ok') 
 				throw new Error(`Server responed with error. The message is: ${response.message}`);
-			return response;
+			return response.data;
 		});
 };
+
+function getProfile() {
+	return axios.get('http://localhost:8080/webauthn/profile')
+		.then(response => response.data);
+}
+
+function logout() {
+	return axios.get('http://localhost:8080/webauthn/profile')
+		.then(response => response.data);
+}
 
 export {
 	getGetAssertionChallenge,
 	getMakeCredentialsChallenge,
-	sendWebAuthnResponse
+	sendWebAuthnResponse,
+	getProfile,
+	logout
 };

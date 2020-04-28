@@ -1,4 +1,3 @@
-const crypto = require('crypto');
 const express = require('express');
 const User = require('../models/user');
 const base64url = require('base64url');
@@ -52,15 +51,12 @@ router.post('/login', async (req, res) => {
 		return res.status(400).send('User does not exist');
 
 	else {
-		console.log('-------\n', user, '-------\n');
 		let getAssertion = serverGetAssertion(user.authenticators);
 		getAssertion.status = 'ok';
 		console.log(getAssertion);
 	
 		req.session.challenge = getAssertion.challenge;
 		req.session.email = email;
-		req.session.test = 'test';
-		req.session.tes2 = null;
 		return res.json(getAssertion);
 	}
 });
@@ -93,12 +89,9 @@ router.post('/response', async (req, res) => {
 	let user = await User.findOne({ email });
 	if(webAuthnResp.response.attestationObject !== undefined) {
 		/* This is create cred */
-		console.log('creating cred');
 		result = await verifyAuthenticatorAttestationResponse(webAuthnResp);
-		console.log(result);
-		
+
 		if(result.verified) {
-			console.log(result);
 			user.authenticators.push(result.authrInfo);
 			user.registered = true;
 			user.save();
@@ -121,6 +114,22 @@ router.post('/response', async (req, res) => {
 			'message': 'Can not authenticate signature!'
 		});
 	}
+});
+
+router.get('/profile', async(req, res) => {
+	if(!req.session.loggedIn)
+		return res.status(401).send('Denied!');
+	
+	const user = await User.findOne({ email: req.session.email });
+	console.log(user);
+
+	return res.json(user);
+	
+});
+
+router.get('/logout', (req, res) => {
+	req.session = null;
+	return res.send('Logged out');
 });
 
 module.exports = router;

@@ -1,97 +1,180 @@
-import React, { useState } from 'react';
 import './App.css';
-import { Grid, Button, Input } from 'semantic-ui-react';
-import { getGetAssertionChallenge, getMakeCredentialsChallenge, sendWebAuthnResponse } from './webauthn';
+import React, { useState, useEffect } from 'react';
+import { Grid, Button, Message, Form, Segment, Header } from 'semantic-ui-react';
+import { getGetAssertionChallenge, getMakeCredentialsChallenge, sendWebAuthnResponse, getProfile, logout } from './webauthn';
 import { preformatGetAssertReq, preformatMakeCredReq, publicKeyCredentialToJSON } from '../helpers';
 
 function App() {
+	const [errMsg, setErrMsg] = useState('');
 	const [email, setEmail ] = useState('');
+	const [successMsg, setSuccessMsg] = useState('');
+	const [loggedIn, setLoggedIn] = useState(false);
+	const [profileData, setProfileData] = useState(null);
+
 	const handleUsernameChange = (e) => {
 		setEmail(e.target.value);
 	};
 	const handleRegister = () => {
-		if(!email){
-			console.log('missing email');
-		}
 		getMakeCredentialsChallenge({email})
 			.then((response) => {
-				console.log('1');
-				console.log(response);
 				const publicKey = preformatMakeCredReq(response);
-				console.log(publicKey);
-				console.log('1.5');
 				return navigator.credentials.create({ publicKey });
 			})
 			.then((response) => {
-				console.log(response);
-				console.log('2');
 				const makeCredResponse = publicKeyCredentialToJSON(response);
-				console.log(makeCredResponse);
-				console.log('2.5');
 				return sendWebAuthnResponse(makeCredResponse);
 			})
 			.then((response) => {
-				console.log('3');
-				if(response.status === 'ok')
-					alert('All ok ');
+				if(response.status === 'ok'){
+					setErrMsg('');
+					setSuccessMsg('You can now try logging in');
+				}
 				else
-					alert(`Server responed with error. The message is: ${response.message}`);
+					setErrMsg(response.message);
 			})
-			.catch(err => console.log(err));
+			.catch(err => {
+				if(err.response)
+					setErrMsg(err.response.data);
+				else
+					console.log(err);
+			});
 	};
-	const handleLogin = () => {
-		if(!email){
-			console.log('missing email');
-		}
 
+	const handleLogin = () => {
 		getGetAssertionChallenge({email})
 			.then((response) => {
-				console.log(response);
 				const publicKey = preformatGetAssertReq(response);
-				console.log(publicKey);
-				console.log('omg wtf');
 				return navigator.credentials.get({ publicKey });
 			})
 			.then((response) => {
-				console.log(response);
 				let getAssertionResponse = publicKeyCredentialToJSON(response);
 				return sendWebAuthnResponse(getAssertionResponse);
 			})
 			.then((response) => {
-				console.log(response);
 				if(response.status === 'ok') {
-					alert('Logged in User');
+					localStorage.setItem('loggedIn', true);
+					setLoggedIn(true);
+					setEmail('');
+					setSuccessMsg('');
+					setErrMsg('');
 				} else {
-					alert(`Server responed with error. The message is: ${response.message}`);
+					setSuccessMsg('');
+					setErrMsg(response.message);
 				}
-			});
+			})
+			.catch(err => setErrMsg(err.response.data));
+	};
+	const handleLogout = () => {
+		setEmail('');
+		logout().then(() => {
+			localStorage.removeItem('loggedIn');
+			setLoggedIn(false);
+			setProfileData(null);
+		});
 	};
 
+	useEffect(() => {;
+		if(localStorage.getItem('loggedIn'))
+			setLoggedIn(true);
+		if(loggedIn)
+			getProfile()
+				.then(data => {
+					setProfileData(data);
+				})
+				.catch(err => setErrMsg(err.response.data));
+	}, [loggedIn]);
+
 	return (
-		<div className='App'>
-			<header className='App-header'>
-				<Grid>
-					<Grid.Row>
-						<Grid.Column style = {{width: '129px'}}>
-							<Input focus placeholder = 'Email' size = 'small' onChange={handleUsernameChange}/>
-						</Grid.Column>
-					</Grid.Row>
-					<Grid.Row>
-						<Grid.Column>
-							<Button primary size='massive' onClick={handleRegister}>
-								Register
-							</Button>
-						</Grid.Column>
-					</Grid.Row>
-					<Grid.Row>
-						<Grid.Column>
-							<Button primary  size='massive' onClick={handleLogin}>
-								Login
-							</Button>
-						</Grid.Column>
-					</Grid.Row>
-				</Grid>
-			</header>
+		<div className='App-header'>
+			<Grid container textAlign='center' verticalAlign='middle'>
+				<Grid.Column style={{ maxWidth: 450, minWidth: 300 }}>
+					<Header as='h2' textAlign='center' style={{ color: 'white'}}>
+						WebAuthn Demo
+					</Header>
+					{!loggedIn ?
+						<Form size='large'>
+							{errMsg && <Message negative icon='warning sign' size='mini' header={errMsg}/>}
+							{successMsg && <Message positive icon='thumbs up' size='mini' header={successMsg}/>}
+							<Segment>
+								<Form.Input 
+									fluid
+									icon='user'
+									iconPosition='left'
+									placeholder='Username'
+									onChange={handleUsernameChange}
+								/>
+								<Button 
+									fluid 
+									size='large' 
+									onClick={handleRegister} 
+									style={{ 
+										marginTop: 8,
+										color: 'white',
+										backgroundColor: '#19857b'
+									}}
+									disabled={!email}
+								>
+									Register
+								</Button>
+								<Button 
+									fluid 
+									size='large'
+									onClick={handleLogin} 
+									style={{ 
+										marginTop: 8,
+										color: 'white',
+										backgroundColor: '#19857b'
+									}}
+									disabled={!email}
+								>
+									Login
+								</Button>
+							</Segment>
+						</Form>
+						:
+						<Segment style={{ overflowWrap: 'break-word'}}>
+							{profileData &&
+								<>
+									<Header as='h3' textAlign='center'>
+										Hi {profileData.name}
+									</Header>
+									<Header as='h4' textAlign='center'>
+										Your profile information
+									</Header>
+									<strong>ID: </strong>{profileData.id}
+									<br/>
+									<strong>Credential information:</strong>
+									<br/>
+									<strong>Format: </strong>{profileData.authenticators[0].fmt}
+									<br/>
+									<strong>Public key: </strong>
+									<br/>
+									<div style={{
+										maxWidth: 300,
+										overflowWrap: 'break-word',
+										marginLeft: '25%',
+										marginRight: '25%'
+									}}>
+										{profileData.authenticators[0].publicKey}
+									</div>
+									<Button 
+										fluid 
+										size='large'
+										onClick={handleLogout} 
+										style={{ 
+											marginTop: 8,
+											color: 'white',
+											backgroundColor: '#19857b'
+										}}
+									>
+										Logout
+									</Button>
+								</>
+							}
+						</Segment>
+					}
+				</Grid.Column>
+			</Grid>
 		</div>
 	);
 }
