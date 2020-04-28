@@ -48,6 +48,7 @@ function serverMakeCred(id, email) {
 	return makeCredentialds;
 }
 function serverGetAssertion(authenticators) {
+	const rpId = process.env.RP_ID || 'localhost';
 	const allowCreds = authenticators.map((authr) => {
 		return {
 			type: 'public-key',
@@ -59,7 +60,7 @@ function serverGetAssertion(authenticators) {
 		challenge: randomBase64URLBuffer(32),
 		allowCredentials: allowCreds,
 		userVerification: 'discouraged',
-		rpId: 'localhost',
+		rpId,
 		extensions: {
 			txAuthSimple: '',
 		},
@@ -94,53 +95,29 @@ async function verifyAuthenticatorAttestationResponse(webAuthnResponse) {
 	const attestationBuffer = base64url.toBuffer(webAuthnResponse.response.attestationObject);
 	const ctapMakeCredResp = cbor.decodeAllSync(attestationBuffer)[0];
 	const { clientDataJSON } = webAuthnResponse.response;
+	let verification;
 
-	console.log(ctapMakeCredResp.fmt);
-	if (ctapMakeCredResp.fmt === 'fido-u2f') {
-		const { verified, authrInfo } = await verifyU2FAttestation(ctapMakeCredResp, clientDataJSON);
+	if (ctapMakeCredResp.fmt === 'fido-u2f') 
+		verification = await verifyU2FAttestation(ctapMakeCredResp, clientDataJSON);
+	else if (ctapMakeCredResp.fmt === 'packed')
+		verification = await verifyPackedAttestation(ctapMakeCredResp, clientDataJSON);
+	else if (ctapMakeCredResp.fmt === 'android-key')
+		verification = await verifyAndroidKeyAttestation(ctapMakeCredResp, clientDataJSON);
+	else if (ctapMakeCredResp.fmt === 'android-safetynet')
+		verification = await verifyAndroidSafetyNetAttestation(ctapMakeCredResp, clientDataJSON);
 
-		if (verified) {
-			const response = {
-				verified,
-				authrInfo,
-			};
-			return response;
-		}
-	} else if (ctapMakeCredResp.fmt === 'packed') {
-		const { verified, authrInfo } = await verifyPackedAttestation(ctapMakeCredResp, clientDataJSON);
-
-		if (verified) {
-			const response = {
-				verified,
-				authrInfo,
-			};
-			return response;
-		}
-	} else if (ctapMakeCredResp.fmt === 'android-key') {
-		const { verified, authrInfo } = await verifyAndroidKeyAttestation(ctapMakeCredResp, clientDataJSON);
-
-		if (verified) {
-			const response = {
-				verified,
-				authrInfo,
-			};
-			return response;
-		}
-	} else if (ctapMakeCredResp.fmt === 'android-safetynet') {
-		const { verified, authrInfo } = await verifyAndroidSafetyNetAttestation(ctapMakeCredResp, clientDataJSON);
-
-		if (verified) {
-			const response = {
-				verified,
-				authrInfo,
-			};
-			return response;
-		}
+	const { verified, authrInfo } = verification;
+	if (verified) {
+		const response = {
+			verified,
+			authrInfo,
+		};
+		return response;
 	}
-
-	return {
-		verified: false,
-	};
+	else 
+		return {
+			verified: false,
+		};
 }
 
 function findAuthenticator(credID, authenticators) {

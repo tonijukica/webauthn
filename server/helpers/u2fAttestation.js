@@ -1,11 +1,9 @@
 'use strict';
 const base64url = require('base64url');
-const cbor = require('cbor');
 const { hash, parseAuthData, verifySignature, COSEECDHAtoPKCS } = require('./common');
 
 async function verifyU2FAttestation(ctapCredentialResponse, clientDataJSON) {
 	const authenticatorDataStruct = parseAuthData(ctapCredentialResponse.authData);
-	console.log('u2f', authenticatorDataStruct);
 	if (!(authenticatorDataStruct.flags.up)) 
 		throw new Error('User was NOT presented durring authentication!');
 

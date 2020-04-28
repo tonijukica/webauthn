@@ -1,6 +1,9 @@
+'use strict';
 const mongoose = require('mongoose');
-const dbPath = 'mongodb+srv://rootadmin:root1234@webauthn-6ypjt.mongodb.net/test?retryWrites=true&w=majority';
-mongoose.connect(dbPath, {
+const dbConnection = process.env.DB_CONNECTION;
+mongoose.set('useCreateIndex', true);
+
+mongoose.connect(dbConnection, {
 	useNewUrlParser: true,
 	useUnifiedTopology: true,
 });

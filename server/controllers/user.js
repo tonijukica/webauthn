@@ -1,7 +1,13 @@
 const express = require('express');
 const User = require('../models/user');
 const base64url = require('base64url');
-const { randomBase64URLBuffer, serverMakeCred, serverGetAssertion, verifyAuthenticatorAttestationResponse, verifyAuthenticatorAssertionResponse } = require('../helpers');
+const { 
+	randomBase64URLBuffer, 
+	serverMakeCred, 
+	serverGetAssertion, 
+	verifyAuthenticatorAttestationResponse, 
+	verifyAuthenticatorAssertionResponse 
+} = require('../helpers');
 
 const router = express.Router();
 
@@ -25,11 +31,9 @@ router.post('/register', async (req, res) => {
 			email,
 		});
 		user.save();
-		console.log(user);
 	
 		let makeCredChallenge = serverMakeCred(user.id, user.email);
 		makeCredChallenge.status = 'ok';
-		console.log(makeCredChallenge);
 
 		req.session.challenge = makeCredChallenge.challenge;
 		req.session.email = email;
@@ -53,7 +57,6 @@ router.post('/login', async (req, res) => {
 	else {
 		let getAssertion = serverGetAssertion(user.authenticators);
 		getAssertion.status = 'ok';
-		console.log(getAssertion);
 	
 		req.session.challenge = getAssertion.challenge;
 		req.session.email = email;
@@ -85,7 +88,6 @@ router.post('/response', async (req, res) => {
 		});
 	}
 	let result;
-	console.log(webAuthnResp.response);
 	let user = await User.findOne({ email });
 	if(webAuthnResp.response.attestationObject !== undefined) {
 		/* This is create cred */
@@ -121,7 +123,6 @@ router.get('/profile', async(req, res) => {
 		return res.status(401).send('Denied!');
 	
 	const user = await User.findOne({ email: req.session.email });
-	console.log(user);
 
 	return res.json(user);
 	

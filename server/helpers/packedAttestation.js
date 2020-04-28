@@ -7,7 +7,6 @@ const { COSE_ALG_HASH, COSE_KEYS, COSE_KTY, COSE_CRV, COSE_RSA_SCHEME } = requir
 
 async function verifyPackedAttestation(ctapCredentialResponse, clientDataJSON){
 	const authenticatorDataStruct = parseAuthData(ctapCredentialResponse.authData);
-	console.log('PACKED', authenticatorDataStruct);
 	const clientDataHash = hash('SHA256',base64url.decode(clientDataJSON));
 	const signatureBase = Buffer.concat([
 		ctapCredentialResponse.authData,

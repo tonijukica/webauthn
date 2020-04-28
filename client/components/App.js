@@ -33,7 +33,7 @@ function App() {
 					setErrMsg(response.message);
 			})
 			.catch(err => {
-				if(err.response)
+				if(err.response.data)
 					setErrMsg(err.response.data);
 				else
 					console.log(err);
@@ -62,7 +62,12 @@ function App() {
 					setErrMsg(response.message);
 				}
 			})
-			.catch(err => setErrMsg(err.response.data));
+			.catch(err => {
+				if(err.response.data)
+					setErrMsg(err.response.data);
+				else
+					console.log(err);
+			});
 	};
 	const handleLogout = () => {
 		setEmail('');
@@ -81,7 +86,10 @@ function App() {
 				.then(data => {
 					setProfileData(data);
 				})
-				.catch(err => setErrMsg(err.response.data));
+				.catch(err => {
+					setErrMsg(err.response.data);
+					localStorage.removeItem('loggedIn');
+				});
 	}, [loggedIn]);
 
 	return (

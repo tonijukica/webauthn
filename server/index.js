@@ -1,3 +1,5 @@
+'use strict';
+require('dotenv').config();
 const express = require('express');
 const cookieSession = require('cookie-session');
 const cookieParser = require('cookie-parser');
@@ -13,11 +15,13 @@ app.use(cookieSession({
 	keys: [randomHex32String()],
 	maxAge: 24*60*60*1000
 }));
+
 app.use(cookieParser());
 app.use(cors({
 	origin: 'http://localhost:3000',
 	credentials: true
 }));
+
 app.use(express.static('dist'));
 
 app.get('/', (req, res) => {
@@ -25,7 +29,8 @@ app.get('/', (req, res) => {
 });
 
 app.use('/webauthn', userRouter);
+const port = process.env.PORT || 8080;
 
-app.listen(8080, () => {
+app.listen(port, () => {
 	console.log('Server listening on http://localhost:8080');
 });

@@ -12,7 +12,6 @@ const {
 
 async function verifyAndroidSafetyNeyAttestation(ctapCredResp, clientDataJSON) {
 	const authenticatorDataStruct = parseAuthData(ctapCredResp.authData);
-	console.log('ANDROID-SAFETYNET', authenticatorDataStruct);
 
 	const jwtString = ctapCredResp.attStmt.response.toString('utf8');
 	const jwtParts = jwtString.split('.');

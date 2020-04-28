@@ -7,7 +7,6 @@ const { COSE_KEYS } = require('./cose');
 
 async function verifyAndroidKeyAttestation(ctapCredResp, clientDataJSON) {
 	const authenticatorDataStruct = parseAuthData(ctapCredResp.authData);
-	console.log('ANDROID KEY', authenticatorDataStruct);
 	const clientDataHash = hash('SHA256', clientDataJSON);
 
 	const signatureBase = Buffer.concat([ctapCredResp, clientDataHash]);
