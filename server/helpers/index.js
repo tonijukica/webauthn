@@ -6,6 +6,7 @@ const verifyU2FAttestation = require('./u2fAttestation');
 const verifyPackedAttestation = require('./packedAttestation');
 const verifyAndroidKeyAttestation = require('./androidKeyAttestation');
 const verifyAndroidSafetyNetAttestation = require('./androidSafetyNetAttestation');
+const noneAttestation = require('./noneAttestation');
 
 async function verifySignature(signature, data, publicKey) {
 	return await crypto.createVerify('SHA256').update(data).verify(publicKey, signature);
@@ -42,7 +43,43 @@ function serverMakeCred(id, email) {
 				type: 'public-key',
 				alg: -7,
 			},
+			{
+				type: 'public-key',
+				alg: -35,
+			},
+			{
+				type: 'public-key',
+				alg: -36,
+			},
+			{
+				type: 'public-key',
+				alg: -257,
+			},
+			{
+				type: 'public-key',
+				alg: -258,
+			},
+			{
+				type: 'public-key',
+				alg: -259,
+			},
+			{
+				type: 'public-key',
+				alg: -38,
+			},
+			{
+				type: 'public-key',
+				alg: -39,
+			},
+			{
+				type: 'public-key',
+				alg: -8,
+			},
 		],
+		authenticatorSelection: {
+			requireResidentKey: false,
+			userVerification: 'discouraged'
+		}
 	};
 
 	return makeCredentialds;
@@ -96,7 +133,7 @@ async function verifyAuthenticatorAttestationResponse(webAuthnResponse) {
 	const ctapMakeCredResp = cbor.decodeAllSync(attestationBuffer)[0];
 	const { clientDataJSON } = webAuthnResponse.response;
 	let verification;
-
+	console.log(ctapMakeCredResp);
 	if (ctapMakeCredResp.fmt === 'fido-u2f') 
 		verification = await verifyU2FAttestation(ctapMakeCredResp, clientDataJSON);
 	else if (ctapMakeCredResp.fmt === 'packed')
@@ -105,6 +142,8 @@ async function verifyAuthenticatorAttestationResponse(webAuthnResponse) {
 		verification = await verifyAndroidKeyAttestation(ctapMakeCredResp, clientDataJSON);
 	else if (ctapMakeCredResp.fmt === 'android-safetynet')
 		verification = await verifyAndroidSafetyNetAttestation(ctapMakeCredResp, clientDataJSON);
+	else if (ctapMakeCredResp.fmt === 'none')
+		verification = await noneAttestation(ctapMakeCredResp, clientDataJSON);
 
 	const { verified, authrInfo } = verification;
 	if (verified) {
@@ -151,12 +190,12 @@ function parseGetAssertAuthData(buffer) {
 	return { rpIdHash, flagsBuf, flags, counter, counterBuf };
 }
 
-function verifyAuthenticatorAssertionResponse(webAuthnResponse, authenticators) {
+async function verifyAuthenticatorAssertionResponse(webAuthnResponse, authenticators) {
 	const authr = findAuthenticator(webAuthnResponse.id, authenticators);
 	const authenticatorData = base64url.toBuffer(webAuthnResponse.response.authenticatorData);
 
 	let response = { verified: false };
-	if (authr.fmt === 'fido-u2f' || authr.fmt === 'packed' || authr.fmt === 'android-safetynet' || authr.fmt === 'android-key') {
+	if (authr.fmt === 'fido-u2f' || authr.fmt === 'packed' || authr.fmt === 'android-safetynet' || authr.fmt === 'android-key' || authr.fmt === 'none') {
 		let authrDataStruct = parseGetAssertAuthData(authenticatorData);
 
 		if (!authrDataStruct.flags.up) throw new Error('User was NOT presented durring authentication!');
@@ -168,11 +207,13 @@ function verifyAuthenticatorAssertionResponse(webAuthnResponse, authenticators) 
 			authrDataStruct.counterBuf,
 			clientDataHash,
 		]);
-
-		const publicKey = ASN1toPEM(base64url.toBuffer(authr.publicKey));
+		const publicKey = checkPEM(authr.publicKey) ? 
+			authr.publicKey.toString('base64')
+			:
+			ASN1toPEM(base64url.toBuffer(authr.publicKey))
+		;
 		const signature = base64url.toBuffer(webAuthnResponse.response.signature);
-
-		response.verified = verifySignature(signature, signatureBase, publicKey);
+		response.verified = await verifySignature(signature, signatureBase, publicKey);
 
 		if (response.verified) {
 			if (response.counter <= authr.counter) throw new Error('Authr counter did not increase!');
@@ -182,6 +223,9 @@ function verifyAuthenticatorAssertionResponse(webAuthnResponse, authenticators) 
 	}
 
 	return response;
+}
+function checkPEM(pubKey){
+	return pubKey.toString('base64').includes('BEGIN');
 }
 
 module.exports = {

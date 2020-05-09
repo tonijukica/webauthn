@@ -2,6 +2,7 @@
 const base64url = require('base64url');
 const elliptic = require('elliptic');
 const nodeRSA = require('node-rsa');
+const cbor = require('cbor');
 const { hash, parseAuthData, verifySignature, COSEECDHAtoPKCS, base64ToPem, getCertificationInfo } = require('./common');
 const { COSE_ALG_HASH, COSE_KEYS, COSE_KTY, COSE_CRV, COSE_RSA_SCHEME } = require('./cose');
 
@@ -54,7 +55,7 @@ async function verifyPackedAttestation(ctapCredentialResponse, clientDataJSON){
 		throw new Error('ECDAA not implemented yet');
 	
 	else{
-		const publicKeyCose = authenticatorDataStruct.COSEPublicKey;
+		const publicKeyCose = cbor.decodeAllSync(authenticatorDataStruct.COSEPublicKey)[0];
 		const hashAlg = COSE_ALG_HASH[publicKeyCose.get(COSE_KEYS.alg)];
 		if(publicKeyCose.get(COSE_KEYS.kty) === COSE_KTY.EC2){
 			const ansiKey = COSEECDHAtoPKCS(publicKeyCose);
@@ -81,12 +82,11 @@ async function verifyPackedAttestation(ctapCredentialResponse, clientDataJSON){
 			const key = new nodeRSA(undefined, { signingScheme });
 			key.importKey({
 				n: publicKeyCose.get(COSE_KEYS.n),
-				e: 65537
+				e: publicKeyCose.get(COSE_KEYS.e)
 			}, 'components-public');
-
-			const verifed = key.verify(signatureBase, signature);
+			const verified = key.verify(signatureBase, signature);
 			return {
-				verifed, 
+				verified, 
 				authrInfo: {
 					fmt: 'packed',
 					publicKey: key.exportKey('pkcs1-public-pem'),
