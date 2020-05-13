@@ -116,9 +116,8 @@ function getCertificationInfo(certificate) {
 	}
 
 	const version = subjectCert.version;
-	// const basicConstraintsCA = !!subjectCert.getExtBasicConstraints().cA;
-	const basicConstraintsCA = false;
-
+ 	const basicConstraintsCA = !!subjectCert.getExtBasicConstraints().cA;
+	
 	return {
 		subject,
 		version,
