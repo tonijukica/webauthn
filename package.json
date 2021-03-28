@@ -14,7 +14,7 @@
   "license": "MIT",
   "dependencies": {
     "@lapo/asn1js": "^1.1.0",
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "babel-polyfill": "^6.26.0",
     "base64url": "^3.0.1",
     "cbor": "^5.0.2",
